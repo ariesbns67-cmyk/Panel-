@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YAKA VIP PANEL</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Poppins:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary-green: #00ff88;
+            --secondary-green: #2ecc71;
+            --dark-bg: #050608;
+            --card-bg: rgba(15, 16, 20, 0.95);
+            --danger: #ff3333;
+            --success: #00ffa3;
+            --info: #00e5ff;
+            --purple: #bf5aff;
+            --glass-border: rgba(0, 255, 136, 0.2);
+        }
+
+        * { 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(0, 255, 136, 0.08) 0%, transparent 35%),
+                radial-gradient(circle at 100% 100%, rgba(191, 90, 255, 0.08) 0%, transparent 35%);
+            color: #e0e0e0;
+            padding: clamp(5px, 2vw, 20px);
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Maintenance Overlay */
+        #mt-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--dark-bg); z-index: 10000;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px;
+        }
+        #mt-overlay i { font-size: 80px; color: var(--danger); margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,51,51,0.5); }
+        #mt-overlay h1 { font-family: 'Orbitron'; color: #fff; letter-spacing: 5px; }
+        #mt-overlay p { font-family: 'JetBrains Mono'; color: var(--primary-green); max-width: 500px; }
+
+        /* Particles Background */
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; pointer-events: none; }
+
+        .container { 
+            width: 100%; 
+            max-width: 900px; 
+            margin: auto; 
+            padding-bottom: 80px; 
+        }
+
+        /* Announcement Banner */
+        .announcement-banner {
+            background: rgba(0, 255, 136, 0.08);
+            border: 1px solid var(--primary-green);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideUp 0.5s ease;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
+            gap: clamp(10px, 2vw, 15px); 
+            margin-bottom: 15px; 
+        }
+
+        .premium-border {
+            position: relative;
+            background: var(--card-bg);
+            border-radius: 24px;
+            z-index: 1;
+        }
+        .premium-border::before {
+            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(45deg, var(--secondary-green), #aaffbb, var(--primary-green), var(--purple));
+            background-size: 400% 400%;
+            z-index: -1; border-radius: 26px;
+            animation: moveGradient 8s linear infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes moveGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        #login-container { display: flex; justify-content: center; align-items: center; min-height: 90vh; padding: 15px; }
+        .login-card {
+            background: var(--card-bg);
+            padding: clamp(25px, 5vw, 40px);
+            border-radius: 30px;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+        }
+        .login-card h1 { 
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(to right, #fff, var(--primary-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: clamp(24px, 8vw, 36px); font-weight: 900; letter-spacing: 6px; margin-bottom: 30px;
+        }
+
+        #admin-main { display: none; animation: slideUp 0.6s ease-out; }
+        
+        .vip-header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.03);
+            padding: clamp(12px, 3vw, 25px); border-radius: 24px;
+            border: 1px solid var(--glass-border); margin-bottom: 20px;
+            flex-wrap: wrap; gap: 10px;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.02);
+            padding: 15px 10px; border-radius: 20px; text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+        .stat-box h4 { margin: 0; font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 2px; }
+        .stat-box p { margin: 5px 0 0; font-size: clamp(18px, 4vw, 24px); font-weight: 900; color: #fff; font-family: 'Orbitron'; }
+
+        .card { 
+            background: var(--card-bg); 
+            padding: clamp(15px, 4vw, 35px); 
+            border-radius: 28px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4); 
+            margin-bottom: 20px; 
+            border: 1px solid var(--glass-border);
+        }
+
+        h2 { 
+            font-family: 'Orbitron'; color: var(--primary-green); text-align: center; 
+            font-size: clamp(13px, 3vw, 18px); letter-spacing: 2px; margin-bottom: 20px;
+        }
+        
+        input, select, textarea { 
+            width: 100%; padding: clamp(12px, 3vw, 15px); margin-bottom: 15px; 
+            background: rgba(0,0,0,0.4); border: 1px solid #222; 
+            border-radius: 12px; color: #fff; outline: none; font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        input:disabled, select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .btn-main { 
+            width: 100%; padding: clamp(14px, 3vw, 18px); 
+            background: linear-gradient(135deg, var(--secondary-green), var(--primary-green)); 
+            color: #000; border: none; border-radius: 15px; 
+            font-weight: 900; cursor: pointer; text-transform: uppercase;
+            font-family: 'Orbitron'; font-size: clamp(11px, 2.5vw, 14px);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,255,136,0.3); }
+
+        .factory-inputs { display: flex; flex-wrap: wrap; gap: 10px; }
+        .factory-inputs > div { flex: 1; min-width: 120px; }
+
+        .table-container { width: 100%; overflow-x: hidden; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+        td { 
+            background: rgba(255,255,255,0.02); padding: clamp(12px, 3vw, 20px); 
+            border-radius: 20px; border: 1px solid rgba(255,255,255,0.03);
+            display: block; width: 100%; 
+        }
+        
+        .key-code { 
+            background: #000; padding: 6px 12px; border-radius: 10px; 
+            color: var(--primary-green); font-family: 'JetBrains Mono'; 
+            font-weight: 700; border: 1px solid var(--glass-border);
+            font-size: clamp(11px, 3vw, 14px); display: inline-block; word-break: break-all;
+        }
+
+        .action-btns { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); 
+            gap: 8px; margin-top: 12px; 
+        }
+
+        #notify-toast {
+            display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--primary-green); color: #000; padding: 10px 30px; border-radius: 50px;
+            font-family: 'Orbitron'; font-weight: 900; font-size: 12px; z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.5);
+        }
+
+        .music-control { position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: rgba(0,0,0,0.8); border: 1px solid var(--primary-green); padding: 10px; border-radius: 50%; cursor: pointer; color: var(--primary-green); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+
+        .log-container {
+            max-height: 150px; overflow-y: auto; font-family: 'JetBrains Mono'; font-size: 10px;
+            background: #000; padding: 10px; border-radius: 10px; color: var(--success); margin-top: 10px;
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        button { cursor: pointer; }
+        .fa-crown, .fa-bolt, .fa-server, .fa-history { color: var(--primary-green); }
+    </style>
+</head>
+<body>
+
+<div id="mt-overlay">
+    <i class="fa fa-screwdriver-wrench"></i>
+    <h1>SYSTEM OFFLINE</h1>
+    <p id="mt-message">Our systems are currently undergoing scheduled maintenance to improve your experience. We'll be back shortly!</p>
+    <button class="btn-main" style="width: auto; padding: 10px 40px; margin-top: 20px;" onclick="location.reload()">RETRY CONNECTION</button>
+</div>
+
+<canvas id="bg-canvas"></canvas>
+
+<audio id="bg-music" loop>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3" type="audio/mpeg">
+</audio>
+<audio id="snd-success" src="https://www.myinstants.com/media/sounds/success.mp3"></audio>
+
+<div class="music-control" onclick="toggleMusic()"><i id="music-icon" class="fa fa-music"></i></div>
+
+<div id="notify-toast">COPIED TO SYSTEM</div>
+
+<div id="login-container">
+    <div class="login-card premium-border">
+        <h1>YAKA VIP PANEL</h1>
+        <div style="text-align: left;">
+            <input type="text" id="user" placeholder="Username">
+            <input type="password" id="pass" placeholder="Password">
+        </div>
+        <button class="btn-main" onclick="checkLogin()">LOGIN</button>
+        <p id="error-msg" style="color: var(--danger); font-size: 10px; margin-top: 20px; display: none; font-weight: 700;">ERR: ACCESS_DENIED</p>
+    </div>
+</div>
+
+<div id="admin-main" class="container">
+    <div id="announcement-display" class="announcement-banner">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa fa-bullhorn"></i> <span id="announcement-text">Welcome!</span></span>
+            <span id="maintenance-badge" class="status-badge"></span>
+        </div>
+    </div>
+
+    <div class="vip-header premium-border">
+        <div style="flex: 1; min-width: 150px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa fa-crown" style="color: var(--primary-green);"></i>
+                <span id="display-username" style="font-family: 'Orbitron'; font-weight: 900; font-size: 13px;"></span>
+                <span id="rank-badge" style="background: var(--primary-green); color: #000; font-size: 8px; padding: 2px 6px; border-radius: 4px; font-weight: 900;"></span>
+            </div>
+            <span id="vip-clock" style="font-size: 9px; opacity: 0.6;">SYNCING...</span>
+        </div>
+        <button onclick="logout()" style="background:transparent; border:1px solid var(--danger); color:var(--danger); padding:6px 12px; border-radius:10px; cursor:pointer; font-size: 9px; font-weight: 900; font-family: 'Orbitron';">LOGOUT</button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box"><h4>ENTRIES</h4><p id="stat-total">0</p></div>
+        <div class="stat-box" style="border-bottom: 2px solid var(--success);"><h4>VALID</h4><p id="stat-active" style="color: var(--success);">0</p></div>
+        <div class="stat-box" style="border-bottom: 2px solid var(--danger);"><h4>VOID</h4><p id="stat-expired" style="color: var(--danger);">0</p></div>
+        <div class="stat-box" style="border-bottom: 2px solid var(--purple);"><h4>LIFETIME</h4><p id="stat-permanent" style="color: var(--purple);">0</p></div>
+    </div>
+
+    <div id="owner-tools" class="card premium-border" style="display:none; border: 1px solid var(--primary-green);">
+        <h2><i class="fa fa-broadcast-tower"></i> BROADCAST & STATUS</h2>
+        <textarea id="announcement-input" placeholder="What's your message to users?" rows="2"></textarea>
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <label style="font-size: 9px;">LIGHT STATUS</label>
+                <select id="maintenance-status">
+                    <option value="online">ONLINE (Green Light)</option>
+                    <option value="maintenance">MAINTENANCE (Red Light)</option>
+                </select>
+            </div>
+            <button class="btn-main" style="flex: 1; margin-top: 15px;" onclick="updateAnnouncement()">SAVE BROADCAST</button>
+        </div>
+    </div>
+
+    <div id="user-creation-menu" class="card premium-border" style="display:none; border: 1px solid var(--info);">
+        <h2 style="color:var(--info);"><i class="fa fa-user-plus"></i> ADD SYSTEM USER</h2>
+        <input type="text" id="new-sys-user" placeholder="Enter Username">
+        <input type="text" id="new-sys-pass" placeholder="Enter Password">
+        <select id="new-sys-rank">
+            <option value="USER">USER (Limited Access)</option>
+            <option value="ADMIN">ADMIN (Full Control)</option>
+        </select>
+        <button class="btn-main" style="background: var(--info);" onclick="addSystemUser()">CREATE ACCOUNT</button>
+        
+        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 20px 0;">
+        <h2 style="font-size: 12px;"><i class="fa fa-users"></i> REGISTERED USERS LIST</h2>
+        <div class="table-container"><tr><tbody id="sysUserBody"></tbody></table></div>
+    </div>
+
+    <div id="maintenance-tools" class="card" style="border: 1px solid var(--danger); display:none;">
+        <h2 style="color:var(--danger);"><i class="fa fa-skull"></i> DB_MAINTENANCE</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px;">
+            <button class="btn-main" style="background:var(--danger); color:#000; padding:10px;" onclick="purgeAll()">PURGE ALL</button>
+            <button class="btn-main" style="background:#fff; color:#000; padding:10px;" onclick="exportJSON()">JSON EXPORT</button>
+        </div>
+    </div>
+
+    <div class="card premium-border">
+        <h2><i class="fa fa-bolt"></i> GENERATOR</h2>
+        <input type="text" id="target-user" placeholder="Username">
+        <div class="factory-inputs">
+            <div><label style="font-size: 9px;">KEY PREFIX</label><input type="text" id="key-prefix" value="YAKA-"></div>
+            <div><label style="font-size: 9px;">DURATION</label><input type="number" id="duration-val" value="30"></div>
+            <div><label style="font-size: 9px;">UNIT</label>
+                <select id="duration-unit" onchange="toggleLifetime()">
+                    <option value="day">DAYS</option>
+                    <option value="month">MONTHS</option>
+                    <option value="lifetime">LIFETIME</option>
+                </select>
+            </div>
+        </div>
+        <div class="factory-inputs">
+             <div><label style="font-size: 9px;">MAX_DEVICES</label><input type="number" id="maxUsers" value="100"></div>
+        </div>
+        <button class="btn-main" onclick="generateKey()">DEPLOY ACCESS</button>
+        <div id="new-key-display" style="display:none; margin-top:20px; background:#000; padding:15px; border-radius:15px; border: 1px dashed var(--info); text-align:left;">
+            <div style="margin-bottom:10px;">
+                <span style="color:#666; font-size:10px; display:block;">NEW USER:</span>
+                <b id="latest-user-text" style="color:var(--primary-green); font-family:'JetBrains Mono'; font-size: 14px;"></b>
+            </div>
+            <div style="margin-bottom:15px;">
+                <span style="color:#666; font-size:10px; display:block;">LOGIN PASS/KEY:</span>
+                <b id="latest-key-text" style="color:var(--info); font-family:'JetBrains Mono'; font-size: 14px;"></b>
+            </div>
+            <button class="btn-main" style="padding: 10px; background: var(--info);" onclick="copyCombined()">COPY CREDENTIALS</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2><i class="fa fa-history"></i> ACTIVITY LOGS</h2>
+        <div class="log-container" id="system-logs">> Initializing System...</div>
+    </div>
+
+    <div class="card">
+        <h2 id="db-title"><i class="fa fa-server"></i> YOUR DATABASE</h2>
+        <input type="text" id="search-input" placeholder="Search keys..." oninput="filterKeys()" style="margin-bottom: 10px;">
+        <div class="table-container"><table><tbody id="keyBody"></tbody></table></div>
+    </div>
+</div>
+
+<script>
+    // ==================== NEW FIREBASE CONFIG (YAKA PROJECT) ====================
+    const firebaseConfig = {
+          apiKey: "AIzaSyAgFRfsyfJ7uW_fHJTjVC7JzioN--WGLRM",
+  authDomain: "yakapanel-1dd55.firebaseapp.com",
+  databaseURL: "https://yakapanel-1dd55-default-rtdb.firebaseio.com",
+  projectId: "yakapanel-1dd55",
+  storageBucket: "yakapanel-1dd55.firebasestorage.app",
+  messagingSenderId: "876675685180",
+  appId: "1:876675685180:web:46e2ec4eb6ea6f8eac1c39"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const OWNER = "Yaka";          // Renamed from Senju → Yaka
+    // ============================================================
+
+    // Particle Background (Green shimmer)
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    let particles = [];
+    class P { constructor(){ this.x=Math.random()*canvas.width; this.y=Math.random()*canvas.height; this.vX=Math.random()*0.5-0.25; this.vY=Math.random()*0.5-0.25; } update(){ this.x+=this.vX; this.y+=this.vY; if(this.x<0||this.x>canvas.width)this.vX*=-1; if(this.y<0||this.y>canvas.height)this.vY*=-1; } draw(){ ctx.fillStyle='rgba(0, 255, 136, 0.25)'; ctx.beginPath(); ctx.arc(this.x,this.y,1.2,0,Math.PI*2); ctx.fill(); } }
+    for(let i=0;i<60;i++) particles.push(new P());
+    function anim(){ ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(anim); } anim();
+
+    function toggleMusic() {
+        const music = document.getElementById('bg-music');
+        const icon = document.getElementById('music-icon');
+        if (music.paused) { music.play().catch(e=>console.log); icon.className = "fa fa-pause"; }
+        else { music.pause(); icon.className = "fa fa-music"; }
+    }
+
+    function toggleLifetime() {
+        const unit = document.getElementById('duration-unit').value;
+        const durInput = document.getElementById('duration-val');
+        if(unit === 'lifetime') {
+            durInput.value = "999";
+            durInput.disabled = true;
+        } else {
+            durInput.disabled = false;
+            durInput.value = unit === 'month' ? "1" : "30";
+        }
+    }
+
+    // Maintenance Logic (Yaka branding)
+    db.ref('system_announcement').on('value', (snap) => {
+        const data = snap.val();
+        const activeUser = sessionStorage.getItem("activeUser");
+        
+        if(data && data.status === 'maintenance') {
+            if(sessionStorage.getItem("isLoggedIn") === "true") {
+                if(activeUser !== OWNER) {
+                    document.getElementById('mt-overlay').style.display = 'flex';
+                    document.getElementById('admin-main').style.display = 'none';
+                    document.getElementById('mt-message').innerText = data.message || "System under maintenance.";
+                } else {
+                    document.getElementById('mt-overlay').style.display = 'none';
+                    document.getElementById('admin-main').style.display = 'block';
+                }
+            }
+        } else {
+            document.getElementById('mt-overlay').style.display = 'none';
+            if(sessionStorage.getItem("isLoggedIn") === "true") {
+                document.getElementById('admin-main').style.display = 'block';
+            }
+        }
+    });
+
+    async function checkLogin() {
+        const u = document.getElementById('user').value.trim();
+        const p = document.getElementById('pass').value.trim();
+        if(u === OWNER && p === "Yakapanel") { initSession(u, "OWNER"); return; }
+        db.ref('panel_users/' + u).once('value', (snap) => {
+            const data = snap.val();
+            if(data && data.pass === p) initSession(u, data.rank);
+            else document.getElementById('error-msg').style.display = 'block';
+        });
+    }
+
+    function initSession(user, rank) {
+        sessionStorage.setItem("isLoggedIn", "true");
+        sessionStorage.setItem("activeUser", user);
+        sessionStorage.setItem("userRank", rank);
+        document.getElementById('snd-success').play();
+        loadPanel();
+    }
+
+    function loadPanel() {
+        const currentUser = sessionStorage.getItem("activeUser");
+        const rank = sessionStorage.getItem("userRank");
+        document.getElementById('login-container').style.display = 'none';
+        
+        db.ref('system_announcement').once('value', (snap) => {
+            const data = snap.val();
+            if(data && data.status === 'maintenance' && currentUser !== OWNER) {
+                document.getElementById('mt-overlay').style.display = 'flex';
+                document.getElementById('admin-main').style.display = 'none';
+            } else {
+                document.getElementById('admin-main').style.display = 'block';
+            }
+        });
+
+        document.getElementById('display-username').innerText = currentUser;
+        document.getElementById('rank-badge').innerText = rank;
+        
+        if(currentUser === OWNER || rank === "ADMIN") {
+            document.getElementById('maintenance-tools').style.display = 'block';
+            document.getElementById('db-title').innerHTML = '<i class="fa fa-globe"></i> MASTER DATABASE';
+            if(currentUser === OWNER) {
+                document.getElementById('user-creation-menu').style.display = 'block';
+                document.getElementById('owner-tools').style.display = 'block';
+                renderSystemUsers();
+            }
+        }
+        listenToAnnouncements();
+        renderKeys();
+        addLog(`Access granted to ${currentUser} — YAKA system ready`);
+    }
+
+    function addLog(msg) {
+        const container = document.getElementById('system-logs');
+        container.innerHTML = `> [${new Date().toLocaleTimeString()}] ${msg}<br>` + container.innerHTML;
+        if(container.children.length > 40) container.lastChild?.remove();
+    }
+
+    function updateAnnouncement() {
+        const msg = document.getElementById('announcement-input').value;
+        const status = document.getElementById('maintenance-status').value;
+        db.ref('system_announcement').set({ message: msg, status: status, timestamp: Date.now() });
+        showToast("STATUS UPDATED");
+        addLog(`Broadcast updated: ${msg} | Mode: ${status}`);
+    }
+
+    function listenToAnnouncements() {
+        db.ref('system_announcement').on('value', (snap) => {
+            const data = snap.val();
+            if(data) {
+                document.getElementById('announcement-display').style.display = 'block';
+                document.getElementById('announcement-text').innerText = data.message || "Welcome to YAKA!";
+                const badge = document.getElementById('maintenance-badge');
+                if(data.status === 'maintenance') {
+                    badge.innerText = "MAINTENANCE"; badge.style.background = 'var(--danger)';
+                } else {
+                    badge.innerText = "ONLINE"; badge.style.background = 'var(--success)';
+                }
+            }
+        });
+    }
+
+    async function addSystemUser() {
+        const u = document.getElementById('new-sys-user').value.trim();
+        const p = document.getElementById('new-sys-pass').value.trim();
+        const r = document.getElementById('new-sys-rank').value;
+        if(!u || !p) return alert("Fill all details!");
+        await db.ref('panel_users/' + u).set({ user: u, pass: p, rank: r });
+        alert("User Access Created!");
+        addLog(`New system user added: ${u} (${r})`);
+    }
+
+    function renderSystemUsers() {
+        db.ref('panel_users').on('value', (snap) => {
+            const data = snap.val();
+            const body = document.getElementById('sysUserBody');
+            body.innerHTML = '';
+            for(let id in data) {
+                body.innerHTML += `<tr><td style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><b>${data[id].user}</b><br><span style="font-size:9px;">${data[id].rank} | ${data[id].pass}</span></div>
+                    <button onclick="deleteSysUser('${data[id].user}')" style="background:var(--danger); border:none; color:#000; padding:5px; border-radius:5px; font-size:9px;">DEL</button>
+                </td></tr>`;
+            }
+        });
+    }
+
+    function deleteSysUser(user) { if(confirm("Remove user?")) { db.ref('panel_users/'+user).remove(); addLog(`User ${user} removed`); } }
+
+    async function generateKey() {
+        const inputUser = document.getElementById('target-user').value.trim();
+        if(!inputUser) return alert("Enter target user!");
+        
+        const prefix = document.getElementById('key-prefix').value.trim() || "YAKA-";
+        let val = parseInt(document.getElementById('duration-val').value) || 0;
+        const unit = document.getElementById('duration-unit').value;
+        const maxU = parseInt(document.getElementById('maxUsers').value);
+        
+        let ms;
+        let finalType = unit.toUpperCase();
+
+        if(unit === "lifetime") {
+            ms = new Date("9999-12-31").getTime() - Date.now();
+            finalType = "LIFETIME";
+        } else if(unit === "month") {
+            ms = val * 30 * 86400000;
+        } else {
+            ms = val * 86400000;
+        }
+
+        const key = prefix + Math.random().toString(36).substr(2, 8).toUpperCase();
+        const exp = Date.now() + ms;
+
+        await db.ref('license_keys/' + key).set({
+            user: inputUser, 
+            key: key, 
+            expires_at: exp, 
+            max_users: maxU,
+            status: "active", 
+            type: finalType, 
+            created_by: sessionStorage.getItem("activeUser")
+        });
+
+        document.getElementById('snd-success').play();
+        document.getElementById('new-key-display').style.display = 'block';
+        document.getElementById('latest-user-text').innerText = inputUser;
+        document.getElementById('latest-key-text').innerText = key;
+        addLog(`Generated ${finalType} key for ${inputUser} → ${key}`);
+    }
+
+    function renderKeys() {
+        const currentUser = sessionStorage.getItem("activeUser");
+        const currentRank = sessionStorage.getItem("userRank");
+        db.ref('license_keys').on('value', (snap) => {
+            const data = snap.val();
+            const tbody = document.getElementById('keyBody');
+            tbody.innerHTML = ''; let t=0, a=0, e=0, p=0;
+            for (let id in data) {
+                const k = data[id];
+                if(currentUser !== OWNER && currentRank !== "ADMIN" && k.created_by !== currentUser) continue;
+                
+                const isLifetime = k.type === 'LIFETIME' || k.expires_at > 2524608000000;
+                const isExp = !isLifetime && (Date.now() > k.expires_at);
+                const status = isExp ? "expired" : k.status;
+                
+                t++; 
+                if(status==='active') a++; 
+                if(status==='expired') e++; 
+                if(isLifetime) p++;
+
+                tbody.innerHTML += `<tr><td>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--primary-green)">USER: ${k.user} [${k.type}]</span>
+                        <span style="color:${status==='active'?'var(--success)':'var(--danger)'}">${status.toUpperCase()}</span>
+                    </div>
+                    <span class="key-code" onclick="copyTextDirect('${k.key}')">${k.key}</span>
+                    <div style="font-size:10px; opacity:0.6;">Exp: ${isLifetime ? 'NEVER (LIFETIME)' : new Date(k.expires_at).toLocaleString()}</div>
+                    <div class="action-btns">
+                        <button class="btn-main" style="padding:5px; font-size:8px; background:#111; color:var(--info);" onclick="extendKey('${k.key}')">RENEW</button>
+                        <button class="btn-main" style="padding:5px; font-size:8px; background:#111; color:var(--danger);" onclick="deleteKey('${k.key}')">DEL</button>
+                    </div>
+                </td></tr>`;
+            }
+            document.getElementById('stat-total').innerText = t;
+            document.getElementById('stat-active').innerText = a;
+            document.getElementById('stat-expired').innerText = e;
+            document.getElementById('stat-permanent').innerText = p;
+        });
+    }
+
+    function extendKey(k) { const d = prompt("EXTEND (days):"); if(d && !isNaN(d)) db.ref('license_keys/'+k).once('value',s=>{ if(s.exists()) db.ref('license_keys/'+k).update({expires_at: s.val().expires_at+(parseInt(d)*86400000), status:'active'}); addLog(`Key ${k} extended by ${d} days`); }); }
+    function deleteKey(k) { if(confirm("Delete key?")) { db.ref('license_keys/'+k).remove(); addLog(`Key ${k} deleted`); } }
+    function purgeAll() { if(confirm("⚠️ WIPE ALL LICENSE KEYS? IRREVERSIBLE")) { db.ref('license_keys').remove(); addLog("⚠️ DATABASE PURGED BY ADMIN"); } }
+    function logout() { sessionStorage.clear(); location.reload(); }
+    function showToast(m) { const t=document.getElementById('notify-toast'); t.innerText=m; t.style.display='block'; setTimeout(()=>t.style.display='none', 1800); }
+    function copyTextDirect(txt) { navigator.clipboard.writeText(txt); showToast("COPIED"); }
+    function copyCombined() { const u = document.getElementById('latest-user-text').innerText; const k = document.getElementById('latest-key-text').innerText; navigator.clipboard.writeText(`USER: ${u}\nKEY: ${k}`); showToast("CREDENTIALS COPIED"); }
+    function filterKeys() {
+        const s = document.getElementById('search-input').value.toLowerCase();
+        const rows = document.getElementById('keyBody').getElementsByTagName('tr');
+        for (let r of rows) { r.style.display = r.innerText.toLowerCase().includes(s) ? '' : 'none'; }
+    }
+    function exportJSON() {
+        db.ref('license_keys').once('value', snap => {
+            const data = JSON.stringify(snap.val(), null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `yaka_backup_${Date.now()}.json`; a.click();
+            addLog("JSON backup exported");
+        });
+    }
+    
+    setInterval(() => { document.getElementById('vip-clock').innerText = new Date().toLocaleString(); }, 1000);
+    if(sessionStorage.getItem("isLoggedIn") === "true") loadPanel();
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+</script>
+</body>
+</html>
